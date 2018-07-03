@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Parameters: 
+  TwitterConsumerKey: 
+    Type: String
+  TwitterConsumerSecret: 
+    Type: String
+    NoEcho: true
+  TwitterAccessToken: 
+    Type: String
+  TwitterAccessTokenSecret: 
+    Type: String
+    NoEcho: true
+  SNSArn:
+    Type: String
+    Default: "arn:aws:sns:eu-west-1:715279111747:twittersearch"
+    
+Resources:
+  TwitterSearch:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: /home/ec2-user/environment/twittersearch
+      Handler: twittersearch.handler
+      Runtime: python3.6
+      Policies:
+        - AmazonDynamoDBFullAccess
+        - AmazonSNSFullAccess
+      Events:
+        TwitterSearchEvent:
+          Type: Schedule
+          Properties:
+            Schedule: rate(30 minutes)
+      Environment:
+        Variables:
+          TWITTER_CONSUMER_KEY: !Ref TwitterConsumerKey
+          TWITTER_CONSUMER_SECRET: !Ref TwitterConsumerSecret
+          TWITTER_ACCESS_TOKEN: !Ref TwitterAccessToken
+          TWITTER_ACCESS_TOKEN_SECRET: !Ref TwitterAccessTokenSecret
+          SNS_ARN: !Ref SNSArn
+          DYNANODB_TABLE: !Ref TweetTable
+  TweetTable:
+    Type: "AWS::DynamoDB::Table"
+    Properties: 
+      TableName: "TweetTable"
+      AttributeDefinitions: 
+        - AttributeName: "tweetId"
+          AttributeType: "N"
+        - AttributeName: "created_at"
+          AttributeType: "S"
+        - AttributeName: "tags"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "tweetId"
+          KeyType: "HASH"
+        - AttributeName: "created_at"
+          KeyType: "RANGE"
+      ProvisionedThroughput:
+         ReadCapacityUnits: 5
+         WriteCapacityUnits: 5
+      GlobalSecondaryIndexes:
+        - IndexName: "tags_index"
+          KeySchema:
+            - AttributeName: "tags"
+              KeyType: "HASH"
+            - AttributeName: "created_at"
+              KeyType: "RANGE"
+          Projection:
+            ProjectionType: "ALL"
+          ProvisionedThroughput:
+             ReadCapacityUnits: 5
+             WriteCapacityUnits: 5
